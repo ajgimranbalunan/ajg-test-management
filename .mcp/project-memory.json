@@ -1,0 +1,31 @@
+{
+  "entities": [
+    {
+      "name": "AJG QA Test Management System",
+      "entityType": "project",
+      "observations": [
+        "This workspace contains a React and Vite frontend, an Express API, and a SQLite database.",
+        "The local implementation is a usable reference app; it does not claim to provide Microsoft 365 identity, SharePoint sync, Power Automate, Power BI publishing, Jira API access, or CI result ingestion."
+      ]
+    },
+    {
+      "name": "Architecture decisions",
+      "entityType": "architecture",
+      "observations": [
+        "ARCHITECTURE.md is the source of truth for the recommended Microsoft 365 production architecture and capability boundaries.",
+        "Test runs store immutable JSON snapshots of selected test cases and steps.",
+        "SQLite is for local development and small-team evaluation; recommend SharePoint Lists or Dataverse with tenant-specific authorization for production."
+      ]
+    },
+    {
+      "name": "Development workflow",
+      "entityType": "workflow",
+      "observations": [
+        "Read README.md and ARCHITECTURE.md before changing the app or its data model.",
+        "Keep entities connected through stable prefixed IDs and record durable implementation decisions or verified gotchas in this project memory.",
+        "Do not put credentials, customer information, or sensitive company data in project memory."
+      ]
+    }
+  ],
+  "relations": []
+}
