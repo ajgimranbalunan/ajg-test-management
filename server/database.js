@@ -14,7 +14,8 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS projects (
     id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT DEFAULT '', product TEXT DEFAULT '',
     manager TEXT DEFAULT '', qa_lead TEXT DEFAULT '', status TEXT DEFAULT 'Active', environment TEXT DEFAULT 'QA',
-    start_date TEXT DEFAULT '', target_release_date TEXT DEFAULT '', app_url TEXT DEFAULT '', jira_url TEXT DEFAULT ''
+    start_date TEXT DEFAULT '', target_release_date TEXT DEFAULT '', app_url TEXT DEFAULT '', jira_url TEXT DEFAULT '',
+    created_by TEXT DEFAULT 'QA Admin'
   );
   CREATE TABLE IF NOT EXISTS users (
     id TEXT PRIMARY KEY, name TEXT NOT NULL, email TEXT DEFAULT '', role TEXT NOT NULL, project_id TEXT REFERENCES projects(id)
@@ -22,7 +23,8 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS test_plans (
     id TEXT PRIMARY KEY, name TEXT NOT NULL, project_id TEXT NOT NULL REFERENCES projects(id), description TEXT DEFAULT '',
     scope TEXT DEFAULT '', objectives TEXT DEFAULT '', strategy TEXT DEFAULT '', environment TEXT DEFAULT 'QA', build TEXT DEFAULT '',
-    start_date TEXT DEFAULT '', end_date TEXT DEFAULT '', lead TEXT DEFAULT '', status TEXT DEFAULT 'Draft', priority TEXT DEFAULT 'Medium'
+    start_date TEXT DEFAULT '', end_date TEXT DEFAULT '', lead TEXT DEFAULT '', status TEXT DEFAULT 'Draft', priority TEXT DEFAULT 'Medium',
+    created_by TEXT DEFAULT 'QA Admin'
   );
   CREATE TABLE IF NOT EXISTS plan_milestones (
     id TEXT PRIMARY KEY, plan_id TEXT NOT NULL REFERENCES test_plans(id) ON DELETE CASCADE, name TEXT NOT NULL,
@@ -30,11 +32,13 @@ db.exec(`
   );
   CREATE TABLE IF NOT EXISTS requirements (
     id TEXT PRIMARY KEY, project_id TEXT NOT NULL REFERENCES projects(id), name TEXT NOT NULL, description TEXT DEFAULT '',
-    feature TEXT DEFAULT '', priority TEXT DEFAULT 'Medium', source TEXT DEFAULT '', status TEXT DEFAULT 'Proposed', acceptance_criteria TEXT DEFAULT ''
+    feature TEXT DEFAULT '', priority TEXT DEFAULT 'Medium', source TEXT DEFAULT '', status TEXT DEFAULT 'Proposed', acceptance_criteria TEXT DEFAULT '',
+    created_by TEXT DEFAULT 'QA Admin'
   );
   CREATE TABLE IF NOT EXISTS test_suites (
     id TEXT PRIMARY KEY, name TEXT NOT NULL, project_id TEXT NOT NULL REFERENCES projects(id), plan_id TEXT REFERENCES test_plans(id),
-    parent_id TEXT REFERENCES test_suites(id), description TEXT DEFAULT '', owner TEXT DEFAULT ''
+    parent_id TEXT REFERENCES test_suites(id), description TEXT DEFAULT '', owner TEXT DEFAULT '',
+    created_by TEXT DEFAULT 'QA Admin'
   );
   CREATE TABLE IF NOT EXISTS test_cases (
     id TEXT PRIMARY KEY, title TEXT NOT NULL, project_id TEXT NOT NULL REFERENCES projects(id), plan_id TEXT REFERENCES test_plans(id),
@@ -58,7 +62,8 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS test_runs (
     id TEXT PRIMARY KEY, name TEXT NOT NULL, project_id TEXT NOT NULL REFERENCES projects(id), plan_id TEXT REFERENCES test_plans(id),
     suite_id TEXT REFERENCES test_suites(id), build TEXT DEFAULT '', environment TEXT DEFAULT 'QA', browser TEXT DEFAULT '',
-    device TEXT DEFAULT '', start_date TEXT DEFAULT '', end_date TEXT DEFAULT '', assigned_to TEXT DEFAULT '', status TEXT DEFAULT 'Not Started'
+    device TEXT DEFAULT '', start_date TEXT DEFAULT '', end_date TEXT DEFAULT '', assigned_to TEXT DEFAULT '', status TEXT DEFAULT 'Not Started',
+    created_by TEXT DEFAULT 'QA Admin'
   );
   CREATE TABLE IF NOT EXISTS test_run_cases (
     id TEXT PRIMARY KEY, run_id TEXT NOT NULL REFERENCES test_runs(id) ON DELETE CASCADE,
@@ -68,12 +73,16 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS test_executions (
     id TEXT PRIMARY KEY, run_id TEXT NOT NULL REFERENCES test_runs(id) ON DELETE CASCADE,
     case_id TEXT NOT NULL REFERENCES test_cases(id), status TEXT DEFAULT 'Not Run', tester TEXT DEFAULT '',
-    actual_result TEXT DEFAULT '', comment TEXT DEFAULT '', executed_at TEXT DEFAULT ''
+    actual_result TEXT DEFAULT '', comment TEXT DEFAULT '', jira_ticket TEXT DEFAULT '', executed_at TEXT DEFAULT ''
   );
   CREATE TABLE IF NOT EXISTS test_execution_steps (
     id TEXT PRIMARY KEY, execution_id TEXT NOT NULL REFERENCES test_executions(id) ON DELETE CASCADE,
     step_id TEXT NOT NULL, step_number INTEGER NOT NULL, status TEXT DEFAULT 'Not Run', actual_result TEXT DEFAULT '',
     comment TEXT DEFAULT '', evidence TEXT DEFAULT ''
+  );
+  CREATE TABLE IF NOT EXISTS custom_views (
+    id TEXT PRIMARY KEY, project_id TEXT NOT NULL, name TEXT NOT NULL,
+    filters TEXT DEFAULT '{}', created_by TEXT DEFAULT 'QA Admin', created_at TEXT DEFAULT CURRENT_TIMESTAMP
   );
   CREATE TABLE IF NOT EXISTS defects (
     id TEXT PRIMARY KEY, title TEXT NOT NULL, project_id TEXT NOT NULL REFERENCES projects(id), case_id TEXT REFERENCES test_cases(id),
@@ -92,6 +101,18 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_defects_project_status ON defects(project_id, status);
 `);
 
+// Run alter table migrations for existing databases
+const addColumn = (table, column, def) => {
+  try { db.prepare(`ALTER TABLE ${table} ADD COLUMN ${column} ${def}`).run(); } catch (_) {}
+};
+addColumn('projects', 'created_by', "TEXT DEFAULT 'QA Admin'");
+addColumn('test_plans', 'created_by', "TEXT DEFAULT 'QA Admin'");
+addColumn('requirements', 'created_by', "TEXT DEFAULT 'QA Admin'");
+addColumn('test_suites', 'created_by', "TEXT DEFAULT 'QA Admin'");
+addColumn('test_cases', 'created_by', "TEXT DEFAULT 'QA Admin'");
+addColumn('test_runs', 'created_by', "TEXT DEFAULT 'QA Admin'");
+addColumn('test_executions', 'jira_ticket', "TEXT DEFAULT ''");
+
 const count = db.prepare('SELECT COUNT(*) AS count FROM projects').get().count;
 if (count === 0) seed();
 
@@ -105,7 +126,7 @@ function seed() {
     ['PROJ-001', 'Client Portal', 'Policyholder self-service and account management.', 'Customer Experience', 'Morgan Lee', 'Taylor Reed', 'Active', 'QA', '2026-08-01', '2026-10-30', 'https://portal.example.test', 'https://jira.example.com/projects/PORTAL'],
     ['PROJ-002', 'Claims Hub', 'Claims intake, review, and payment workflows.', 'Claims Operations', 'Jordan Kim', 'Casey Morgan', 'Active', 'Staging', '2026-07-15', '2026-11-20', 'https://claims.example.test', 'https://jira.example.com/projects/CLAIM'],
   ];
-  insert('INSERT INTO projects VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', projects);
+  insert('INSERT INTO projects (id,name,description,product,manager,qa_lead,status,environment,start_date,target_release_date,app_url,jira_url,created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', projects.map((project) => [...project, 'QA Admin']));
   insert('INSERT INTO users VALUES (?, ?, ?, ?, ?)', [
     ['USR-001', 'Taylor Reed', 'taylor@example.com', 'Test Lead', 'PROJ-001'],
     ['USR-002', 'Alex Chen', 'alex@example.com', 'QA Engineer', 'PROJ-001'],
@@ -113,29 +134,29 @@ function seed() {
     ['USR-004', 'Morgan Lee', 'morgan@example.com', 'Viewer / Manager', 'PROJ-001'],
     ['USR-005', 'Casey Morgan', 'casey@example.com', 'QA Administrator', 'PROJ-002'],
   ]);
-  insert('INSERT INTO test_plans (id,name,project_id,description,scope,objectives,strategy,environment,build,start_date,end_date,lead,status,priority) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)', [
-    ['PLAN-001', 'Sprint 24 Regression', 'PROJ-001', 'Validate account and policy workflows for Sprint 24.', 'Login, profile, policy search', 'Protect core customer journeys', 'Risk-based regression', 'QA', '24.3.0-rc2', '2026-09-22', '2026-10-05', 'Taylor Reed', 'In Progress', 'High'],
-    ['PLAN-002', 'Portal Release 5.2', 'PROJ-001', 'Release readiness and browser compatibility.', 'Release-critical portal journeys', 'Confirm release acceptance', 'Functional and compatibility', 'Staging', '5.2.0', '2026-10-06', '2026-10-20', 'Taylor Reed', 'Planned', 'Critical'],
-    ['PLAN-003', 'Claims Intake Acceptance', 'PROJ-002', 'Validate new claim intake and document upload.', 'FNOL and attachment workflows', 'Meet claims acceptance criteria', 'UAT with operations', 'Staging', '2.8.1', '2026-09-25', '2026-10-18', 'Casey Morgan', 'In Progress', 'High'],
+  insert('INSERT INTO test_plans (id,name,project_id,description,scope,objectives,strategy,environment,build,start_date,end_date,lead,status,priority,created_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', [
+    ['PLAN-001', 'Sprint 24 Regression', 'PROJ-001', 'Validate account and policy workflows for Sprint 24.', 'Login, profile, policy search', 'Protect core customer journeys', 'Risk-based regression', 'QA', '24.3.0-rc2', '2026-09-22', '2026-10-05', 'Taylor Reed', 'In Progress', 'High', 'Taylor Reed'],
+    ['PLAN-002', 'Portal Release 5.2', 'PROJ-001', 'Release readiness and browser compatibility.', 'Release-critical portal journeys', 'Confirm release acceptance', 'Functional and compatibility', 'Staging', '5.2.0', '2026-10-06', '2026-10-20', 'Taylor Reed', 'Planned', 'Critical', 'Taylor Reed'],
+    ['PLAN-003', 'Claims Intake Acceptance', 'PROJ-002', 'Validate new claim intake and document upload.', 'FNOL and attachment workflows', 'Meet claims acceptance criteria', 'UAT with operations', 'Staging', '2.8.1', '2026-09-25', '2026-10-18', 'Casey Morgan', 'In Progress', 'High', 'Casey Morgan'],
   ]);
   insert('INSERT INTO plan_milestones VALUES (?, ?, ?, ?, ?, ?, ?)', [
     ['MILE-001', 'PLAN-001', 'Regression testing', '2026-09-25', '2026-10-02', 'QA Team', 'In Progress'],
     ['MILE-002', 'PLAN-001', 'Release sign-off', '2026-10-03', '2026-10-05', 'Taylor Reed', 'Planned'],
     ['MILE-003', 'PLAN-003', 'Operations UAT', '2026-10-06', '2026-10-14', 'Claims QA', 'Planned'],
   ]);
-  insert('INSERT INTO requirements VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', [
-    ['REQ-001', 'Secure customer sign-in', 'Customers can authenticate with valid credentials and recover access.', 'Identity', 'Critical', 'Product', 'Approved', 'Valid credentials open the account; invalid credentials show a safe error.'],
-    ['REQ-002', 'Profile maintenance', 'Customers can update their contact details.', 'Account', 'High', 'Product', 'Approved', 'Saved changes persist and are visible on reload.'],
-    ['REQ-003', 'Policy search', 'Customers can find active policies by policy number.', 'Policies', 'High', 'Product', 'Approved', 'Exact policy number returns the correct policy.'],
-    ['REQ-004', 'Claim submission', 'A customer can submit a first notice of loss.', 'Claims', 'Critical', 'Operations', 'Approved', 'Required fields validate and a claim reference is returned.'],
-    ['REQ-005', 'Evidence upload', 'A claim can include supporting documents.', 'Claims', 'Medium', 'Operations', 'Proposed', 'Supported files upload and remain available to the reviewer.'],
+  insert('INSERT INTO requirements (id,project_id,name,description,feature,priority,source,status,acceptance_criteria,created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [
+    ['REQ-001', 'PROJ-001', 'Secure customer sign-in', 'Customers can authenticate with valid credentials and recover access.', 'Identity', 'Critical', 'Product', 'Approved', 'Valid credentials open the account; invalid credentials show a safe error.', 'Taylor Reed'],
+    ['REQ-002', 'PROJ-001', 'Profile maintenance', 'Customers can update their contact details.', 'Account', 'High', 'Product', 'Approved', 'Saved changes persist and are visible on reload.', 'Taylor Reed'],
+    ['REQ-003', 'PROJ-001', 'Policy search', 'Customers can find active policies by policy number.', 'Policies', 'High', 'Product', 'Approved', 'Exact policy number returns the correct policy.', 'Taylor Reed'],
+    ['REQ-004', 'PROJ-002', 'Claim submission', 'A customer can submit a first notice of loss.', 'Claims', 'Critical', 'Operations', 'Approved', 'Required fields validate and a claim reference is returned.', 'Casey Morgan'],
+    ['REQ-005', 'PROJ-002', 'Evidence upload', 'A claim can include supporting documents.', 'Claims', 'Medium', 'Operations', 'Proposed', 'Supported files upload and remain available to the reviewer.', 'Casey Morgan'],
   ]);
-  insert('INSERT INTO test_suites VALUES (?, ?, ?, ?, ?, ?, ?)', [
-    ['SUITE-001', 'Authentication', 'PROJ-001', 'PLAN-001', null, 'Sign-in, recovery, and session behavior.', 'Alex Chen'],
-    ['SUITE-002', 'Account & Profile', 'PROJ-001', 'PLAN-001', null, 'Customer account and profile scenarios.', 'Alex Chen'],
-    ['SUITE-003', 'Policy Search', 'PROJ-001', 'PLAN-001', null, 'Policy discovery and search filters.', 'Taylor Reed'],
-    ['SUITE-004', 'Claims Intake', 'PROJ-002', 'PLAN-003', null, 'Claim submission scenarios.', 'Casey Morgan'],
-    ['SUITE-005', 'Document Evidence', 'PROJ-002', 'PLAN-003', null, 'Claim attachment validation.', 'Casey Morgan'],
+  insert('INSERT INTO test_suites (id,name,project_id,plan_id,parent_id,description,owner,created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', [
+    ['SUITE-001', 'Authentication', 'PROJ-001', 'PLAN-001', null, 'Sign-in, recovery, and session behavior.', 'Alex Chen', 'Alex Chen'],
+    ['SUITE-002', 'Account & Profile', 'PROJ-001', 'PLAN-001', null, 'Customer account and profile scenarios.', 'Alex Chen', 'Alex Chen'],
+    ['SUITE-003', 'Policy Search', 'PROJ-001', 'PLAN-001', null, 'Policy discovery and search filters.', 'Taylor Reed', 'Taylor Reed'],
+    ['SUITE-004', 'Claims Intake', 'PROJ-002', 'PLAN-003', null, 'Claim submission scenarios.', 'Casey Morgan', 'Casey Morgan'],
+    ['SUITE-005', 'Document Evidence', 'PROJ-002', 'PLAN-003', null, 'Claim attachment validation.', 'Casey Morgan', 'Casey Morgan'],
   ]);
   const titles = [
     ['Sign in with valid credentials', 'PROJ-001', 'PLAN-001', 'SUITE-001', 'REQ-001', 'Authentication', 'Functional', 'High', 'Alex Chen', '@smoke @login'],
@@ -167,10 +188,10 @@ function seed() {
     linkInsert.run(requirement, id);
   }));
   makeCases();
-  insert('INSERT INTO test_runs VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [
-    ['RUN-001', 'Regression Testing - Sprint 24', 'PROJ-001', 'PLAN-001', 'SUITE-001', '24.3.0-rc2', 'QA', 'Chrome', 'Desktop', '2026-09-28', '', 'Alex Chen', 'In Progress'],
-    ['RUN-002', 'Profile & Policy Smoke', 'PROJ-001', 'PLAN-001', 'SUITE-002', '24.3.0-rc2', 'QA', 'Edge', 'Desktop', '2026-09-27', '2026-09-28', 'Taylor Reed', 'Completed'],
-    ['RUN-003', 'Claims Intake UAT', 'PROJ-002', 'PLAN-003', 'SUITE-004', '2.8.1', 'Staging', 'Chrome', 'Tablet', '2026-09-29', '', 'Casey Morgan', 'In Progress'],
+  insert('INSERT INTO test_runs (id,name,project_id,plan_id,suite_id,build,environment,browser,device,start_date,end_date,assigned_to,status,created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [
+    ['RUN-001', 'Regression Testing - Sprint 24', 'PROJ-001', 'PLAN-001', 'SUITE-001', '24.3.0-rc2', 'QA', 'Chrome', 'Desktop', '2026-09-28', '', 'Alex Chen', 'In Progress', 'Alex Chen'],
+    ['RUN-002', 'Profile & Policy Smoke', 'PROJ-001', 'PLAN-001', 'SUITE-002', '24.3.0-rc2', 'QA', 'Edge', 'Desktop', '2026-09-27', '2026-09-28', 'Taylor Reed', 'Completed', 'Taylor Reed'],
+    ['RUN-003', 'Claims Intake UAT', 'PROJ-002', 'PLAN-003', 'SUITE-004', '2.8.1', 'Staging', 'Chrome', 'Tablet', '2026-09-29', '', 'Casey Morgan', 'In Progress', 'Casey Morgan'],
   ]);
   const selected = [
     ['RUN-001', ['TC-001', 'TC-002', 'TC-003', 'TC-004']],
@@ -178,7 +199,7 @@ function seed() {
     ['RUN-003', ['TC-011', 'TC-012', 'TC-013', 'TC-014']],
   ];
   const runCaseInsert = db.prepare('INSERT INTO test_run_cases VALUES (?, ?, ?, ?, ?)');
-  const executionInsert = db.prepare('INSERT INTO test_executions VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+  const executionInsert = db.prepare('INSERT INTO test_executions (id,run_id,case_id,status,tester,actual_result,comment,executed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
   const executionStepInsert = db.prepare('INSERT INTO test_execution_steps VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
   const makeRuns = db.transaction(() => selected.forEach(([runId, caseIds], runIndex) => caseIds.forEach((caseId, caseIndex) => {
     const testCase = db.prepare('SELECT * FROM test_cases WHERE id=?').get(caseId);
