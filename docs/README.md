@@ -24,7 +24,7 @@ The sample workspace has two projects, three plans, five suites, 15 cases with s
 
 ## Included workflows
 
-Project-scoped dashboard, plans, suites, case/step creation, requirements, run creation with immutable snapshots, step-by-step execution, outcome roll-up, evidence attachment, failure-to-defect creation, Jira URL/key storage, searchable/filterable lists, and CSV exports. The role selector changes the displayed role context only; it does not authenticate users or enforce permissions. Audit records are captured for API create/update operations.
+Project-scoped dashboard, plans, nested suites, case/step creation, custom case views, requirements, run creation with immutable snapshots, step-by-step execution, outcome roll-up, evidence attachment, Jira ticket and comment capture on failed executions, searchable/filterable lists, and CSV exports. The role selector changes the displayed role context only; it does not authenticate users or enforce permissions. Audit records are captured for API create/update operations.
 
 ## MCP continuous-learning setup
 

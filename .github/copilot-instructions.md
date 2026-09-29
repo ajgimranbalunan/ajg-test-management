@@ -1,6 +1,6 @@
 # Project Guidance
 
-- Read `ARCHITECTURE.md` and `README.md` before changing architecture, persistence, or integration behavior.
+- Read `docs/ARCHITECTURE.md` and `docs/README.md` before changing architecture, persistence, or integration behavior.
 - This is a React/Vite frontend with an Express API and SQLite persistence. Keep the app usable without Microsoft tenant credentials.
 - Prefer extending the existing normalized SQLite entities and API. Preserve prefixed IDs, foreign-key relationships, audit history, and immutable test-run snapshots.
 - At the start of a substantial task, use the `project-memory` MCP server's `search_nodes` tool to retrieve relevant project learnings. After validating a durable discovery or architecture decision, add it with `create_entities` or `add_observations` so future sessions can reuse it.

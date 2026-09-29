@@ -25,11 +25,11 @@ All records use stable prefixed IDs (for example `PROJ-001`, `PLAN-001`, `TC-001
 
 - `projects` 1-to-many `test_plans`, `requirements`, `test_cases`, `test_runs`, and `defects`.
 - `test_plans` 1-to-many `test_suites`, `test_cases`, `test_runs`, and `plan_milestones`.
-- `test_suites` are self-referencing by `parent_suite_id`; a suite has many `test_cases` and can contain child suites.
+- `test_suites` are self-referencing by `parent_id`; a suite has many `test_cases` and can contain child suites. The Test Cases repository renders these relationships as a collapsible folder tree.
 - `test_cases` belong to a project and optionally a plan, suite, and requirement; they have many `test_case_steps` and many `requirement_test_cases` links.
 - `requirements` belong to a project and link many-to-many to cases through `requirement_test_cases`.
 - `test_runs` belong to a project and optionally a plan/suite; `test_run_cases` stores the selected case and an immutable JSON snapshot at run creation.
-- `test_executions` link a run to a case snapshot; `test_execution_steps` store step result, actual result, comment, and evidence reference.
+- `test_executions` link a run to a case snapshot; `test_execution_steps` store step result, actual result, comment, and evidence reference. Failed executions can store a Jira ticket and tester comment directly.
 - `defects` link to project, case, run, execution, requirement, and failed step where available; external Jira URL/key are optional.
 - `audit_logs` capture record type, ID, action, actor, timestamp, and changed fields. `users` represent role/assignment references in this local reference app.
 
@@ -37,21 +37,21 @@ Production evidence files should live in a SharePoint document library, with att
 
 ## Screens and navigation
 
-Dashboard; Projects; Test Plans; Test Suites; Test Cases; Test Runs; Test Execution; Defects / Issues; Requirements; Reports & Analytics; Team; Settings. Project selection scopes all project-specific views. Test execution is optimized for a focused run/case/step workflow; failed execution offers a prefilled defect flow. Reports are filterable by project/plan/run/tester/environment/date and exportable in the production Power BI or Excel implementation.
+Dashboard; Reports; Test Plans; Test Cases; Test Runs; Requirements; Team; Settings. Projects is opened from the project selector's View All Projects action, while the selector scopes all project-specific views. Test Cases provides All Test Cases, nested folders, custom views, duplication, inline creation, and case-level actions. Test execution is optimized for a focused run/case/step workflow; failed execution captures Jira references and comments. Reports are filterable by project/plan/run/tester/environment/date and exportable in the production Power BI or Excel implementation.
 
 ## Roles and permissions
 
 - QA Administrator: full project/data/user/settings administration.
 - Test Lead: plans, suites, cases, assignments, runs, defect triage, reports.
-- QA Engineer: assigned case execution, step results, comments/evidence, defect creation.
-- Developer: assigned defect updates/comments and related failure/evidence review.
-- Viewer / Manager: read-only dashboards, plans, results, defects, and reports.
+- QA Engineer: assigned case execution, step results, comments/evidence, and Jira reference capture.
+- Developer: related failure, Jira reference, and evidence review.
+- Viewer / Manager: read-only dashboards, plans, results, and reports.
 
 The local reference app provides role-aware UI affordances for demonstration, not a security boundary. Production permissions must be enforced by Entra, SharePoint/Dataverse permissions, and API authorization; a hidden button is not authorization.
 
 ## Power Apps and Power Automate components
 
-Recommended Canvas app components: project switcher; reusable entity list/search/filter; plan editor with milestone timeline; suite tree; case/step editor and history; run builder and snapshot service; execution workbench with step results and evidence links; defect form; traceability matrix; responsive dashboards. Flows: assignment notification, failed-test/critical-defect notification, defect assignment/status updates, plan/milestone reminders, and scheduled report distribution. Use Teams and email actions with retry/idempotency controls.
+Recommended Canvas app components: project switcher; reusable entity list/search/filter; plan editor with milestone timeline; collapsible suite tree; case/step editor and history; custom case views; run builder and snapshot service; execution workbench with step results, evidence links, Jira references, and comments; traceability matrix; responsive dashboards. Flows: assignment notification, failed-test/Jira-reference notification, plan/milestone reminders, and scheduled report distribution. Use Teams and email actions with retry/idempotency controls.
 
 ## Power BI reporting
 
